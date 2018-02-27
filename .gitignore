@@ -1,0 +1,7 @@
+*.sw[op]
+*.aci
+*.asc
+*.py[oc]
+*.kra
+venv/
+__pycache__/
