@@ -62,9 +62,9 @@ class Sidebar(object):
 	"""draws the button sidebar"""
 
 	edge_pad=4
-	y=1
+	y=0
 	arrow_height=6
-	btn_gap=6
+	btn_gap=9.5
 	font = loadfont("tiny.ttf",6)
 
 	def __init__(self,width):
@@ -98,7 +98,7 @@ class Sidebar(object):
 		self.y+=h
 
 	def draw(self,c,d,page):
-		self.y=1
+		self.y=4
 		c.line((d.width-self.width,0,d.width-self.width,d.height),width=1,fill="white")
 		self.draw_arrow(c,d,"UP")
 		self.draw_line(c,d)
@@ -108,9 +108,6 @@ class Sidebar(object):
 			self.draw_txt(c,d, "SET")
 		else:
 			self.draw_txt(c,d,"OK")
-		self.draw_line(c,d)
-		if type(page) == SettingPage:
-			self.draw_txt(c,d, "esc")
 
 
 
@@ -222,8 +219,6 @@ class Menu(object):
 		else:
 			self.page.select()
 			self.page = self.main
-	def cancel(self):
-		self.page = self.main
 	def draw(self, canvas, device):
 		self.page.draw(canvas, device)
 
@@ -339,9 +334,6 @@ class IO_Mgr(object):
 			self.menu.enter()
 			self.screen.draw_menu(self.menu)
 		elif pin == 16:
-			self.menu.cancel()
-			self.screen.draw_menu(self.menu)
-		elif pin == 18:
 			# SCAN
 			for b in self.buttons:
 				b.stop_listening()
@@ -350,7 +342,7 @@ class IO_Mgr(object):
 
 
 def main():
-	pins=(11,13,15,16,18)
+	pins=(11,13,15,16)
 	menu = Menu()
 	screen = Screen(menu)
 	io = IO_Mgr(pins, screen, menu)
