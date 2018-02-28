@@ -317,9 +317,13 @@ class IO_Mgr(object):
 		GPIO.cleanup()
 
 	def listen(self):
-		for b in self.buttons:
+		#menu_btns = 
+		for b in [b for b in self.buttons if b.pin != 16]:
 			b.listen(self.button_press)
-
+		GPIO.wait_for_edge(16, GPIO.FALLING)
+		for b in [b for b in self.buttons if b.pin != 16]:
+			b.stop_listening()
+		self.screen.draw_scan()
 	def button_press(self,pin):
 		if self.screen.is_asleep():
 			self.screen.on()
@@ -333,11 +337,15 @@ class IO_Mgr(object):
 		elif pin == 15:
 			self.menu.enter()
 			self.screen.draw_menu(self.menu)
+		"""
 		elif pin == 16:
 			# SCAN
-			for b in self.buttons:
-				b.stop_listening()
+
+			# note: the following crashes on Pi Zero
+			#for b in self.buttons:
+			#	b.stop_listening()
 			self.screen.draw_scan()
+		"""
 
 
 
@@ -347,16 +355,11 @@ def main():
 	screen = Screen(menu)
 	io = IO_Mgr(pins, screen, menu)
 
-	io.listen()
-
 	def sigint(signal, frame):
 		cleanup(screen,io)
 	signal.signal(signal.SIGINT, sigint)
 
-	# wait forever
-	import time
-	time.sleep(10000)
-
+	io.listen()
 	cleanup(screen,io)
 
 if __name__ == "__main__":
