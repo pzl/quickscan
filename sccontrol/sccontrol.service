@@ -1,0 +1,11 @@
+[Unit]
+Description=Scanner controller, and menu interface
+
+[Service]
+ExecStart=/home/dan/sccontrol/venv/bin/python /home/dan/sccontrol/sccontrol.py
+KillMode=mixed
+Restart=always
+RestartSec=700ms
+
+[Install]
+WantedBy=multi-user.target
