@@ -317,11 +317,12 @@ class IO_Mgr(object):
 		GPIO.cleanup()
 
 	def listen(self):
-		#menu_btns = 
-		for b in [b for b in self.buttons if b.pin != 16]:
+		SCAN_BTN=16
+		menu_btns = [b for b in self.buttons if b.pin != SCAN_BTN]
+		for b in menu_btns:
 			b.listen(self.button_press)
-		GPIO.wait_for_edge(16, GPIO.FALLING)
-		for b in [b for b in self.buttons if b.pin != 16]:
+		GPIO.wait_for_edge(SCAN_BTN, GPIO.FALLING)
+		for b in menu_btns:
 			b.stop_listening()
 		self.screen.draw_scan()
 	def button_press(self,pin):
