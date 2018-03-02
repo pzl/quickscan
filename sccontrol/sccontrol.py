@@ -7,7 +7,8 @@ from luma.core.render import canvas
 #from luma.emulator.device import pygame
 from PIL import ImageFont
 import os, sys
-import signal
+from signal import signal, SIGTERM, SIGINT
+import atexit
 import time
 from threading import Timer
 
@@ -32,14 +33,6 @@ def loadfont(name, size=12):
 			os.path.dirname(__file__),
 			'fonts', name))
 		return ImageFont.truetype(fontp, size)
-def cleanup(screen=None,io=None):
-	if screen:
-		screen.cleanup()
-	if io:
-		io.cleanup()
-	else:
-		GPIO.cleanup()
-	sys.exit(0)
 
 
 
@@ -233,6 +226,7 @@ class Screen(object):
 		self._welcome()
 		time.sleep(1)
 		self.draw_menu(init_menu)
+		atexit.register(self.cleanup)
 
 	def _welcome(self):
 		self.activate()
@@ -308,6 +302,7 @@ class IO_Mgr(object):
 		self.pins = pins
 		self.screen=screen
 		self.menu = menu
+		self.atexit(self.cleanup)
 		GPIO.setmode(GPIO.BOARD)
 		for p in pins:
 			self.buttons.append(Button(p))
@@ -349,19 +344,17 @@ class IO_Mgr(object):
 		"""
 
 
+def cleanup_at_exit():
+	signal(SIGTERM, lambda signum, stack_frame: sys.exit(1))
+	signal(SIGINT, lambda signum, stack_frame: sys.exit(1))
 
 def main():
+	cleanup_at_exit()
 	pins=(11,13,15,16)
 	menu = Menu()
 	screen = Screen(menu)
 	io = IO_Mgr(pins, screen, menu)
-
-	def sigint(signal, frame):
-		cleanup(screen,io)
-	signal.signal(signal.SIGINT, sigint)
-
 	io.listen()
-	cleanup(screen,io)
 
 if __name__ == "__main__":
 	main()
