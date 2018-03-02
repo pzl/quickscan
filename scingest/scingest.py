@@ -80,7 +80,10 @@ class PageFeed(object):
     def __iter__(self):
         return self
     def __del__(self):
-        self.dev.cancel()
+        try:
+            self.dev.cancel()
+        except:# device may have already closed
+            pass
     def __next__(self):
         try:
             self.dev.start()
@@ -121,6 +124,7 @@ class Scanner(object):
     def connect(self):
         self.handle = sane.open(self.device)
         logging.debug("Connected to {}".format(self.device))
+        return self.handle
 
     def disconnect(self):
         if self.handle:
@@ -130,7 +134,8 @@ class Scanner(object):
 
     def setopts(self, device, options):
         settings = {**self.defaults, **options}
-        for opt,val in settings:
+        for opt,val in settings.items():
+            logging.debug('setting printer option {}={}'.format(opt,val))
             setattr(device,opt,val)
 
     def scanwrite(self, feed, filename):
@@ -138,7 +143,7 @@ class Scanner(object):
             for i,page in enumerate(feed):
                 logging.info('reading page {}...'.format(i))
                 page.save(tiff)
-                tiff.newFrame
+                tiff.newFrame()
 
     # called as callback in Client socket processing
     def scan(self, options):
@@ -162,7 +167,7 @@ class Server(object):
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind(('',port))
-        self.launch = lambda x: pass
+        self.launch = lambda x: None
         logging.info('Server listening at port {}'.format(port))
         atexit.register(self.cleanup)
 
@@ -177,7 +182,8 @@ class Server(object):
         self.socket.listen(5)
         while True:
             client = Client(*self.socket.accept())
-            client.process(cb)
+            client.process(self.launch)
+            client.cleanup()
 
 def cleanup_at_exit():
     signal(SIGTERM, lambda signum, stack_frame: sys.exit(1))
