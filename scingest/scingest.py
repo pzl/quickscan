@@ -9,6 +9,7 @@ from signal import signal, SIGTERM, SIGINT
 import atexit
 import sys
 import time
+import datetime
 
 """
 Interesting options:
@@ -139,7 +140,10 @@ class Scanner(object):
             logging.debug('setting printer option {}={}'.format(opt,val))
             setattr(device,opt,val)
 
-    def scanwrite(self, feed, filename):
+    def scanwrite(self, feed):
+        now = datetime.datetime.now()
+        filename = "scan-{}.tiff".format(now.strftime("%Y%m%d%H%M%S_%f"))
+        logging.info("creating {}".format(filename))
         with TiffImagePlugin.AppendingTiffWriter(filename) as tiff:
             for i,page in enumerate(feed):
                 logging.info('reading page {}...'.format(i))
@@ -152,7 +156,7 @@ class Scanner(object):
         device = self.connect()
         self.setopts(device, options)
         pages = PageFeed(device)
-        self.scanwrite(pages, "out.tiff")
+        self.scanwrite(pages)
         logging.info('scan complete')
         self.disconnect()
 
