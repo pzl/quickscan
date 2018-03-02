@@ -196,7 +196,7 @@ class Menu(object):
 		super(Menu, self).__init__()
 		self.settings = []
 		self.settings.append(Setting("Mode",("Color","Gray","B/W")))
-		self.settings.append(Setting("DPI",list(range(50,601,50)),300))
+		self.settings.append(Setting("DPI",list(range(50,601,50)),500))
 		self.settings.append(Setting("Sides",(1,2),2))
 		self.main = MenuPage("Main Menu", self.settings)
 		self.page = self.main

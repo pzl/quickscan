@@ -103,7 +103,7 @@ class Scanner(object):
     defaults={
         'source':'ADF Duplex',
         'mode':'Color',
-        'resolution':300,
+        'resolution':500,
         'ald':1,
         'swskip':15.0,
         'swcrop':1,
