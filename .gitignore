@@ -3,5 +3,7 @@
 *.asc
 *.py[oc]
 *.kra
+*.pdf
+*.tiff
 venv/
 __pycache__/
