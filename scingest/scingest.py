@@ -8,6 +8,7 @@ import json
 from signal import signal, SIGTERM, SIGINT
 import atexit
 import sys
+import time
 
 """
 Interesting options:
@@ -166,7 +167,15 @@ class Server(object):
         super(Server, self).__init__()
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind(('',port))
+        bound=False
+        while not bound:
+            try:
+                self.socket.bind(('',port))
+            except OSError:
+                logging.info("Socket in use, trying again")
+                time.sleep(1)
+            else:
+                bound=True
         self.launch = lambda x: None
         logging.info('Server listening at port {}'.format(port))
         atexit.register(self.cleanup)
