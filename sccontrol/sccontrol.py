@@ -10,7 +10,9 @@ import os, sys
 from signal import signal, SIGTERM, SIGINT
 import atexit
 import time
+import socket
 from threading import Timer
+import json
 
 
 def circle(x,y,r):
@@ -34,14 +36,52 @@ def loadfont(name, size=12):
 			'fonts', name))
 		return ImageFont.truetype(fontp, size)
 
+class Scanner(object):
+	"""communication with scingest"""
+	def __init__(self):
+		super(Scanner, self).__init__()
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.socket.connect(("192.168.1.7",5555))
+
+	def run(self, options):
+		self._send({"scan":True,"options":options})
+
+		msg = self._get()
+		while msg is not None:
+			msg = self._get()
+
+	def _send(self, thing):
+		binjson = json.dumps(thing).encode('utf8')
+		msglen = len(binjson).to_bytes(4, byteorder='big')
+		self.socket.send(msglen+binjson)
+	def _get(self):
+		pkt_len = self.socket.recv(4)
+		if pkt_len == b'':
+			return None
+		pkt_len = int.from_bytes(pkt_len, byteorder='big')
+		nbytes=0
+		chunks=[]
+		while nbytes < pkt_len:
+			chunk = self.socket.recv(min(pkt_len - nbytes, 2048))
+			if chunk == b'':
+				return None
+			chunks.append(chunk)
+			nbytes += len(chunk)
+		return b''.join(chunks)
 
 
 class Setting(object):
 	"""Settings collection object"""
 	def __init__(self, name, values, current=None):
 		super(Setting, self).__init__()
-		self.name = name
-		self.values = values
+		if type(name) is dict:
+			self.name = list(name.keys())[0]
+			self.setting_name = name[self.name]
+		else:
+			self.name=name
+			self.setting_name=name
+		self.values = [ list(x.keys())[0] if type(x) is dict else x for x in values ]
+		self.setting_values = [ list(x.values())[0] if type(x) is dict else x for x in values ]
 		self.current = current if current else values[0]
 	def __str__(self):
 		return "{}: {}".format(self.name, self.current)
@@ -195,9 +235,9 @@ class Menu(object):
 	def __init__(self):
 		super(Menu, self).__init__()
 		self.settings = []
-		self.settings.append(Setting("Mode",("Color","Gray","B/W")))
-		self.settings.append(Setting("DPI",list(range(50,601,50)),500))
-		self.settings.append(Setting("Sides",(1,2),2))
+		self.settings.append(Setting({"Mode":"mode"},("Color","Gray",{"B/W":"Lineart"})))
+		self.settings.append(Setting({"DPI":"resolution"},list(range(50,601,50)),500))
+		self.settings.append(Setting({"Sides":"source"},({1:"ADF Front"},{2:"ADF Duplex"}),2))
 		self.main = MenuPage("Main Menu", self.settings)
 		self.page = self.main
 
@@ -302,7 +342,7 @@ class IO_Mgr(object):
 		self.pins = pins
 		self.screen=screen
 		self.menu = menu
-		self.atexit(self.cleanup)
+		atexit.register(self.cleanup)
 		GPIO.setmode(GPIO.BOARD)
 		for p in pins:
 			self.buttons.append(Button(p))
@@ -321,6 +361,11 @@ class IO_Mgr(object):
 			for b in menu_btns:
 				b.stop_listening()
 			self.screen.draw_scan()
+			scanner = Scanner()
+			settings = {}
+			for s in self.menu.settings:
+				settings[s.setting_name] = s.setting_values[s.index()]
+			scanner.run(settings)
 	def button_press(self,pin):
 		if self.screen.is_asleep():
 			self.screen.on()
