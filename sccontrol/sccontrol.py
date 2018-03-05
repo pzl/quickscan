@@ -4,6 +4,7 @@ from RPi import GPIO
 from luma.core.interface.serial import i2c
 from luma.oled.device import sh1106
 from luma.core.render import canvas
+from luma.core.virtual import terminal
 #from luma.emulator.device import pygame
 from PIL import ImageFont
 import os, sys
@@ -270,6 +271,7 @@ class Screen(object):
 	def __init__(self,init_menu):
 		super(Screen, self).__init__()
 		self.sleep_timer=None
+		self.term=None
 		self.state='OFF'
 		self.oled = sh1106(i2c(port=1, address=0x3C))
 		#self.oled = pygame(width=128, height=64)
@@ -322,10 +324,12 @@ class Screen(object):
 		self.oled.hide()
 
 	def draw_menu(self, menu):
+		self.term=None
 		with screen_timeout(self), canvas(self.oled) as draw:
 			menu.draw(draw, self.oled)
 
 	def draw_scan(self):
+		self.term=None
 		font = loadfont("Raleway-Bold.ttf",18)
 		self.activate() # not auto-dimming here
 		with canvas(self.oled) as draw:
@@ -333,6 +337,7 @@ class Screen(object):
 			draw.text((self.oled.width/2-w/2,self.oled.height/2-h/2),"Scanning...",font=font,fill="white")
 
 	def draw_icon_text(self, icon, txt, txtfont=None):
+		self.term=None
 		if txtfont is None:
 			txtfont = loadfont("Volter__28Goldfish_29.ttf",9)
 		FA = loadfont("fontawesome-webfont.ttf",25)
@@ -350,7 +355,9 @@ class Screen(object):
 		self.draw_icon_text("\uf05a", "no pages found")
 
 	def draw_status(self, stat):
-		font = loadfont("ProggyTiny.ttf",14)
+		if not self.term:
+			self.term = terminal(self.oled, font=loadfont("ProggyTiny.ttf",14), animate=False)
+		
 		if stat == "feed start":
 			txt = "Scanning next page..."
 		elif stat == "page fed":
@@ -362,9 +369,7 @@ class Screen(object):
 			txt = "Saving Page {}".format(pagenum)
 		else:
 			txt = stat
-		with canvas(self.oled) as draw:
-			w,h = draw.textsize(txt,font=font)
-			draw.text((self.oled.width/2-w/2,self.oled.height/2-h/2),txt,font=font,fill="white")
+		self.term.println(txt)
 
 class Button(object):
 	"""a physical button"""
