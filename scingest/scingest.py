@@ -146,9 +146,9 @@ class Scanner(object):
         'resolution':500,
         'ald':1,
         'swskip':15.0,
-        'swcrop':1,
+        'swcrop':0,
         'swdeskew':1,
-        'swdespeck':1,
+        'swdespeck':2,
     }
 
     def __init__(self):
