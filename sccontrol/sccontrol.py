@@ -43,14 +43,21 @@ class Scanner(object):
 	def __init__(self):
 		super(Scanner, self).__init__()
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.socket.connect(("192.168.1.7",5555))
+		self.socket.connect(("192.168.1.28",5555))
+		atexit.register(self.cleanup)
 
-	def run(self, options):
+	def cleanup(self):
+		self.socket.close()
+	def run(self, options, callback):
 		self._send({"scan":True,"options":options})
 
 		msg = self._get()
 		while msg is not None:
-			logging.info(msg.decode("utf8"))
+			s = msg.decode("utf8")
+			logging.info(s)
+			ex = callback(s)
+			if ex:
+				break
 			msg = self._get()
 
 	def _send(self, thing):
@@ -325,6 +332,40 @@ class Screen(object):
 			w,h = draw.textsize("Scanning...",font=font)
 			draw.text((self.oled.width/2-w/2,self.oled.height/2-h/2),"Scanning...",font=font,fill="white")
 
+	def draw_icon_text(self, icon, txt, txtfont=None):
+		if txtfont is None:
+			txtfont = loadfont("Volter__28Goldfish_29.ttf",9)
+		FA = loadfont("fontawesome-webfont.ttf",25)
+		with canvas(self.oled) as draw:
+			w,h = draw.textsize(txt,font=txtfont)
+			draw.text((self.oled.width/2-w/2,self.oled.height*2/3-h/2), txt,fill="white",font=txtfont)
+			w,h = draw.textsize(icon,font=FA)
+			draw.text((self.oled.width/2-w/2,self.oled.height/3-h/2),icon,fill="white",font=FA)
+
+	def draw_err(self, msg):
+		self.draw_icon_text("\uf071", msg)
+	def draw_complete(self):
+		self.draw_icon_text("\uf00c", "Scan Complete", loadfont("Raleway-Bold.ttf",16))
+	def draw_empty(self):
+		self.draw_icon_text("\uf05a", "no pages found")
+
+	def draw_status(self, stat):
+		font = loadfont("ProggyTiny.ttf",14)
+		if stat == "feed start":
+			txt = "Scanning next page..."
+		elif stat == "page fed":
+			txt = "Processing page"
+		elif stat == "backside":
+			txt = "Got backside of previous page"
+		elif stat.startswith("PAGE"):
+			_,pagenum = stat.split(" ")
+			txt = "Saving Page {}".format(pagenum)
+		else:
+			txt = stat
+		with canvas(self.oled) as draw:
+			w,h = draw.textsize(txt,font=font)
+			draw.text((self.oled.width/2-w/2,self.oled.height/2-h/2),txt,font=font,fill="white")
+
 class Button(object):
 	"""a physical button"""
 	def __init__(self, pin):
@@ -351,6 +392,22 @@ class IO_Mgr(object):
 			self.buttons.append(Button(p))
 		#GPIO.setup(pins, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
+	# called as callback from server scanner.run, server comms
+	# return true to exit scanner running
+	def handle_status(self, msg):
+		msg,*args = msg.split(":",maxsplit=1)
+		msg = msg.strip()
+		if msg == "error":
+			self.screen.draw_err(*args)
+		elif msg == "pages end":
+			self.screen.draw_complete()
+		elif msg == "empty scan":
+			self.screen.draw_empty()
+		else:
+			self.screen.draw_status(msg)
+
+
+
 	def cleanup(self):
 		GPIO.cleanup()
 
@@ -358,18 +415,28 @@ class IO_Mgr(object):
 		SCAN_BTN=16
 		menu_btns = [b for b in self.buttons if b.pin != SCAN_BTN]
 		while True:
+			logging.debug("enabling buttons")
 			for b in menu_btns:
 				b.listen(self.button_press)
+			logging.debug("waiting for scan button")
 			GPIO.wait_for_edge(SCAN_BTN, GPIO.FALLING)
+			logging.debug("scan button pressed")
+			logging.debug("disabling buttons")
 			for b in menu_btns:
 				b.stop_listening()
 			self.screen.draw_scan()
-			scanner = Scanner()
+			try:
+				scanner = Scanner()
+			except ConnectionRefusedError:
+				logging.debug("could not connect to scingest")
+				self.screen.draw_err("couldn't find server")
+				continue
 			settings = {}
 			for s in self.menu.settings:
 				logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 				settings[s.setting_name] = s.setting_values[s.index()]
-			scanner.run(settings)
+			scanner.run(settings,self.handle_status)
+			scanner.cleanup()
 	def button_press(self,pin):
 		if self.screen.is_asleep():
 			self.screen.on()
