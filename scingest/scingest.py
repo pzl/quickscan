@@ -7,7 +7,7 @@ import socket
 import json
 from signal import signal, SIGTERM, SIGINT
 import atexit
-import sys
+import sys, os
 import time
 import datetime
 
@@ -33,7 +33,9 @@ Interesting options:
     cover_open: 0/1
 """
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG,format="%(asctime)s %(levelname)7s : %(message)s")
+
+NOOP = lambda *x, **y: None
 
 class Client(object):
     """Communication with sccontrol client"""
@@ -48,6 +50,13 @@ class Client(object):
         logging.debug("cleaning up client socket")
         self.sock.close()
 
+
+    def _send(self, string):
+        data = string.encode('utf8')
+        msglen = len(data).to_bytes(4, byteorder='big')
+        self.sock.send(msglen+data)
+    def _sendjson(self, thing):
+        return self._send(json.dumps(thing))
     def _getmsg(self):
         pkt_len = self.sock.recv(4)
         if pkt_len == b'':
@@ -66,19 +75,36 @@ class Client(object):
 
     def _get_command(self):
         msg = self._getmsg()
-        return json.loads(msg.decode('utf8'))
+        if msg is None:
+            return None,None
+        msg = json.loads(msg.decode('utf8'))
+        if type(msg) is not dict or 'scan' not in msg:
+            return None,None
+        scan = bool(msg['scan'])
+        opts = msg['options'] if 'options' in msg else {}
+        return scan,opts
+
+    def send_progress(self, action, *args):
+        logging.debug("** sending to client: {} : {}".format(action,args))
+        try:
+            self._send(":".join([action,*args]))
+        except BrokenPipeError:
+            logging.debug("client socket closed")
+            pass
 
     def process(self, cb):
         # client should contact us first with options
-        opts = self._get_command()
-        cb(opts)
+        cmd,opts = self._get_command()
+        if cmd:
+            cb(opts, self.send_progress)
 
 
 class PageFeed(object):
     """Page iterator for ADF feed since python-sane doesn't do it right for python3"""
-    def __init__(self, dev):
+    def __init__(self, dev, cb):
         super(PageFeed, self).__init__()
         self.dev = dev
+        self.client_notify = cb
     def __iter__(self):
         return self
     def __del__(self):
@@ -87,13 +113,27 @@ class PageFeed(object):
         except:# device may have already closed
             pass
     def __next__(self):
+        start = time.time()
         try:
+            self.client_notify("feed start")
+            logging.debug("Feeding a page")
             self.dev.start()
-        except Exception as e:
+        except sane._sane.error as e:
             if str(e) == 'Document feeder out of documents':
+                logging.debug("no page to feed, finished")
+                self.client_notify("pages end")
                 raise StopIteration
             else:
+                logging.error(str(e))
+                # Document feeder jammed
                 raise
+        end = time.time() - start
+        if end < 2:
+            logging.debug("Got backside")
+            self.client_notify("backside")
+        else:
+            logging.debug("Page fed")
+            self.client_notify("page fed")
         return self.dev.snap(True)
 
 class Scanner(object):
@@ -140,23 +180,46 @@ class Scanner(object):
             logging.debug('setting printer option {}={}'.format(opt,val))
             setattr(device,opt,val)
 
-    def scanwrite(self, feed):
-        now = datetime.datetime.now()
-        filename = "scan-{}.tiff".format(now.strftime("%Y%m%d%H%M%S_%f"))
+    def removeFile(self, filename):
+        try:
+            os.remove(filename)
+        except OSError:
+            pass
+
+    def scanwrite(self, feed, filename, client_notify):
         logging.info("creating {}".format(filename))
-        with TiffImagePlugin.AppendingTiffWriter(filename) as tiff:
+        with TiffImagePlugin.AppendingTiffWriter(filename,new=True) as tiff:
             for i,page in enumerate(feed):
-                logging.info('reading page {}...'.format(i))
+                logging.info('saving page {}...'.format(i))
+                client_notify("PAGE {}".format(i))
                 page.save(tiff)
                 tiff.newFrame()
+                logging.debug("saved")
+
+
+    def perform_scan(self, device, client_notify):
+        now = datetime.datetime.now()
+        filename = "scan-{}.tiff".format(now.strftime("%Y%m%d%H%M%S_%f"))
+        feeder = PageFeed(device, client_notify)
+        try:
+            self.scanwrite(feeder, filename, client_notify)
+        except sane._sane.error as e:
+            logging.error(str(e))
+            logging.info("aborting scan, removing file")
+            client_notify("error",str(e))
+            self.removeFile(filename)
+        else:
+            if os.path.getsize(filename) == 0:
+                logging.debug("empty scan file. Removing")
+                client_notify("empty scan")
+                self.removeFile(filename)
 
     # called as callback in Client socket processing
-    def scan(self, options):
+    def scan(self, options, client_notify=NOOP):
         logging.info('scan starting')
         device = self.connect()
         self.setopts(device, options)
-        pages = PageFeed(device)
-        self.scanwrite(pages)
+        self.perform_scan(device, client_notify)
         logging.info('scan complete')
         self.disconnect()
 
@@ -180,7 +243,7 @@ class Server(object):
                 time.sleep(1)
             else:
                 bound=True
-        self.launch = lambda x: None
+        self.launch = NOOP
         logging.info('Server listening at port {}'.format(port))
         atexit.register(self.cleanup)
 
