@@ -190,8 +190,8 @@ class Scanner(object):
         logging.info("creating {}".format(filename))
         with TiffImagePlugin.AppendingTiffWriter(filename,new=True) as tiff:
             for i,page in enumerate(feed):
-                logging.info('saving page {}...'.format(i))
-                client_notify("PAGE {}".format(i))
+                logging.info('saving page {}...'.format(i+1))
+                client_notify("PAGE {}".format(i+1))
                 page.save(tiff)
                 tiff.newFrame()
                 logging.debug("saved")
