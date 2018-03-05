@@ -1,10 +1,12 @@
 import json
 import socket
 
-def send(sock, obj):
-	jsonbin = json.dumps(obj).encode('utf8')
-	msglen = len(jsonbin).to_bytes(4, byteorder='big')
-	sock.send(msglen+jsonbin)
+def sendjson(sock, obj):
+	return send(sock,json.dumps(obj))
+def send(sock, s):
+	bindata = s.encode('utf8')
+	msglen = len(bindata).to_bytes(4, byteorder='big')
+	sock.send(msglen+bindata)
 
 def recv(sock):
     pkt_len = sock.recv(4)
@@ -25,7 +27,7 @@ if __name__ == "__main__":
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.connect(("localhost",5555))
 
-	send(s,{
+	sendjson(s,{
 		"scan":True,
 		"options": {
 			"resolution": 400
