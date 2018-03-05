@@ -526,15 +526,15 @@ class IO_Mgr(object):
 			except ConnectionRefusedError:
 				logging.debug("could not connect to scingest")
 				self.screen.draw_err("couldn't find server")
+				time.sleep(2)
+				self.screen.draw_menu(self.menu)
 			else:
 				settings = {}
 				for s in self.menu.settings:
 					logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 					settings[s.setting_name] = s.setting_values[s.index()]
 				scanner.run(settings,self.handle_status)
-			finally:
 				scanner.cleanup()
-
 
 
 def cleanup_at_exit():
