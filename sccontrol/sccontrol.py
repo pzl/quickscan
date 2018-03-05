@@ -13,7 +13,9 @@ import time
 import socket
 from threading import Timer
 import json
+import logging
 
+logging.basicConfig(level=logging.DEBUG,format="%(asctime)s %(levelname)7s : %(message)s")
 
 def circle(x,y,r):
 	return (x-r,y-r,x+r,y+r)
@@ -48,6 +50,7 @@ class Scanner(object):
 
 		msg = self._get()
 		while msg is not None:
+			logging.info(msg.decode("utf8"))
 			msg = self._get()
 
 	def _send(self, thing):
@@ -364,6 +367,7 @@ class IO_Mgr(object):
 			scanner = Scanner()
 			settings = {}
 			for s in self.menu.settings:
+				logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 				settings[s.setting_name] = s.setting_values[s.index()]
 			scanner.run(settings)
 	def button_press(self,pin):
