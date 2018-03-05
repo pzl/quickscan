@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-
-from RPi import GPIO
+try:
+	from RPi import GPIO
+except RuntimeError:
+	pass
 from luma.core.interface.serial import i2c
 from luma.oled.device import sh1106
 from luma.core.render import canvas
 from luma.core.virtual import terminal
-#from luma.emulator.device import pygame
+try:
+	from luma.emulator.device import pygame
+except ImportError:
+	pass
 from PIL import ImageFont
 import os, sys
 from signal import signal, SIGTERM, SIGINT
@@ -18,6 +23,9 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG,format="%(asctime)s %(levelname)7s : %(message)s")
 
+def is_pi():
+	return os.uname().machine[:3] == 'arm'
+
 def circle(x,y,r):
 	return (x-r,y-r,x+r,y+r)
 
@@ -29,9 +37,9 @@ class screen_timeout(object):
 		self.t=t
 	def __enter__(self):
 		pass
-		#self.screen.activate()
+		self.screen.activate()
 	def __exit__(self, *_):
-		self.screen.activate() # activate after drawing has finished
+		#self.screen.activate() # activate after drawing has finished
 		self.screen.sleep_timeout(self.t)
 def loadfont(name, size=12):
 		fontp = os.path.abspath(os.path.join(
@@ -273,8 +281,8 @@ class Screen(object):
 		self.sleep_timer=None
 		self.term=None
 		self.state='OFF'
-		self.oled = sh1106(i2c(port=1, address=0x3C))
-		#self.oled = pygame(width=128, height=64)
+
+		self.oled = sh1106(i2c(port=1, address=0x3C)) if is_pi() else pygame(width=128, height=64)
 		self._welcome()
 		time.sleep(1)
 		self.draw_menu(init_menu)
@@ -383,19 +391,101 @@ class Button(object):
 	def stop_listening(self):
 		GPIO.remove_event_detect(self.pin)
 
-class IO_Mgr(object):
-	"""Manager for a collection of buttons"""
-	def __init__(self, pins, screen, menu):
-		super(IO_Mgr, self).__init__()
-		self.buttons=[]
+
+
+class Button_Interface(object):
+	"""using Pi's GPIO for interacting"""
+	def __init__(self, pins):
+		super(Button_Interface, self).__init__()
 		self.pins = pins
-		self.screen=screen
-		self.menu = menu
-		atexit.register(self.cleanup)
+		self.buttons = []
 		GPIO.setmode(GPIO.BOARD)
+		atexit.register(self.cleanup)
+		#GPIO.setup(pins, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 		for p in pins:
 			self.buttons.append(Button(p))
-		#GPIO.setup(pins, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+	def cleanup(self):
+		GPIO.cleanup()
+
+	def listen(self, cb):
+		SCAN_BTN=16
+		menu_btns = [b for b in self.buttons if b.pin != SCAN_BTN]
+		self.cb = cb
+		logging.debug("enabling buttons")
+		for b in menu_btns:
+			b.listen(self.button_press)
+		logging.debug("waiting for scan button")
+		GPIO.wait_for_edge(SCAN_BTN, GPIO.FALLING)
+		logging.debug("scan button pressed")
+		logging.debug("disabling buttons")
+		for b in menu_btns:
+			b.stop_listening()
+		self.cb("scan")
+
+	def button_press(self,pin):
+		if self.screen.is_asleep():
+			self.screen.on()
+			return
+		if pin == 11:
+			self.cb("up")
+		elif pin == 13:
+			self.cb("down")
+		elif pin == 15:
+			self.cb("enter")
+		"""
+		elif pin == 16:
+			# SCAN
+
+			# note: the following crashes on Pi Zero
+			#for b in self.buttons:
+			#	b.stop_listening()
+			self.screen.draw_scan()
+		"""
+
+class Keys_Interface(object):
+	"""Keyboard interface for interacting via terminal (e.g. desktop testing)"""
+	def __init__(self):
+		super(Keys_Interface, self).__init__()
+		import termios
+		self.old_term_stg = termios.tcgetattr(sys.stdin.fileno())
+		atexit.register(self.cleanup)
+
+	def cleanup(self):
+		import termios
+		termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_term_stg)
+
+	def listen(self, cb):
+		import tty, termios
+		try:
+			tty.setraw(sys.stdin.fileno())
+			ch = sys.stdin.read(1)
+			if ch == "\x1b":
+				ar = sys.stdin.read(2)
+				ch = ch+ar
+		finally:
+			termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_term_stg)
+		
+		if ch == "\x1b[A":
+			cb("up")
+		elif ch == "\x1b[B":
+			cb("down")
+		elif ch == "\r":
+			cb("enter")
+		elif ch == " ":
+			cb("scan")
+		elif ch == "\x03":
+			raise KeyboardInterrupt
+
+
+class IO_Mgr(object):
+	"""Manager for a collection of buttons"""
+	def __init__(self, interface, screen, menu):
+		super(IO_Mgr, self).__init__()
+		self.buttons=[]
+		self.interface = interface
+		self.screen=screen
+		self.menu = menu
 
 	# called as callback from server scanner.run, server comms
 	# return true to exit scanner running
@@ -412,58 +502,39 @@ class IO_Mgr(object):
 			self.screen.draw_status(msg)
 
 
-
-	def cleanup(self):
-		GPIO.cleanup()
-
 	def listen(self):
-		SCAN_BTN=16
-		menu_btns = [b for b in self.buttons if b.pin != SCAN_BTN]
 		while True:
-			logging.debug("enabling buttons")
-			for b in menu_btns:
-				b.listen(self.button_press)
-			logging.debug("waiting for scan button")
-			GPIO.wait_for_edge(SCAN_BTN, GPIO.FALLING)
-			logging.debug("scan button pressed")
-			logging.debug("disabling buttons")
-			for b in menu_btns:
-				b.stop_listening()
+			self.interface.listen(self.button_press)
+
+	def button_press(self,action):
+		if self.screen.is_asleep():
+			self.screen.on()
+			return
+		if action == 'up':
+			self.menu.up()
+			self.screen.draw_menu(self.menu)
+		elif action == 'down':
+			self.menu.down()
+			self.screen.draw_menu(self.menu)
+		elif action == 'enter':
+			self.menu.enter()
+			self.screen.draw_menu(self.menu)
+		elif action == 'scan':
 			self.screen.draw_scan()
 			try:
 				scanner = Scanner()
 			except ConnectionRefusedError:
 				logging.debug("could not connect to scingest")
 				self.screen.draw_err("couldn't find server")
-				continue
-			settings = {}
-			for s in self.menu.settings:
-				logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
-				settings[s.setting_name] = s.setting_values[s.index()]
-			scanner.run(settings,self.handle_status)
-			scanner.cleanup()
-	def button_press(self,pin):
-		if self.screen.is_asleep():
-			self.screen.on()
-			return
-		if pin == 11:
-			self.menu.up()
-			self.screen.draw_menu(self.menu)
-		elif pin == 13:
-			self.menu.down()
-			self.screen.draw_menu(self.menu)
-		elif pin == 15:
-			self.menu.enter()
-			self.screen.draw_menu(self.menu)
-		"""
-		elif pin == 16:
-			# SCAN
+			else:
+				settings = {}
+				for s in self.menu.settings:
+					logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
+					settings[s.setting_name] = s.setting_values[s.index()]
+				scanner.run(settings,self.handle_status)
+			finally:
+				scanner.cleanup()
 
-			# note: the following crashes on Pi Zero
-			#for b in self.buttons:
-			#	b.stop_listening()
-			self.screen.draw_scan()
-		"""
 
 
 def cleanup_at_exit():
@@ -475,7 +546,8 @@ def main():
 	pins=(11,13,15,16)
 	menu = Menu()
 	screen = Screen(menu)
-	io = IO_Mgr(pins, screen, menu)
+	interface = Button_Interface(pins) if is_pi() else Keys_Interface()
+	io = IO_Mgr(interface, screen, menu)
 	io.listen()
 
 if __name__ == "__main__":
