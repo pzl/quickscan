@@ -2,6 +2,7 @@ import json
 import socket
 import time
 import logging
+import random
 
 logging.basicConfig(level=logging.DEBUG,format="%(asctime)s %(levelname)7s : %(message)s")
 
@@ -52,17 +53,17 @@ def handle_conn(sock, addr):
 
 
 def normal_scan(sock):
-	send(sock, "feed start")
-	time.sleep(3)
-	send(sock, "page fed")
-	time.sleep(0.5)
-	send(sock, "PAGE 1")
-	time.sleep(1)
-	send(sock, "feed start")
-	time.sleep(1)
-	send(sock, "backside")
-	time.sleep(1)
-	send(sock, "PAGE 2")
+	side="f"
+	for i in range(random.randint(2,10)):
+		send(sock, "feed start")
+		time.sleep(3 if side == "f" else 0.5)
+		send(sock, "page fed" if side == "f" else "backside")
+		time.sleep(0.5)
+		send(sock, "PAGE {}".format(i+1))
+		if side == "b":
+			side = "f"
+		else:
+			side = random.choice(["f","b"])
 	send(sock, "feed start")
 	send(sock, "pages end")
 
