@@ -303,6 +303,41 @@ class Menu(object):
 	def draw(self, canvas, device):
 		self.page.draw(canvas, device)
 
+class ProgressPage(object):
+	"""Displays in-progress scan info, and actions"""
+	def __init__(self):
+		super(ProgressPage, self).__init__()
+		self.pages=[]
+		self.proggy = loadfont("ProggyTiny.ttf",14)
+		
+	def draw(self, c, d, msg):
+		if msg == "feed start":
+			txt = "Scanning next page..."
+		elif msg == "page fed":
+			txt = "saving data"
+			self.pages.append("f")
+		elif msg == "backside":
+			txt = "Saving backside"
+			self.pages.append("b")
+		elif msg.startswith("PAGE"):
+			_,pagenum = msg.split(" ")
+			txt = "Saving Page {}".format(pagenum)
+		else:
+			txt = msg
+
+		x,y=5,5
+		xsep=20
+		ysep=20
+		for i,p in enumerate(self.pages):
+			if p == "b":
+				x -= xsep
+				document(c,x,y+ysep,i+1,backside=True)
+			else:
+				document(c,x,y,i+1)
+			x += xsep
+		c.text((3,50),txt,font=self.proggy)
+
+
 class Screen(object):
 	"""Represents the OLED scren"""
 
@@ -388,33 +423,10 @@ class Screen(object):
 	def draw_empty(self):
 		self.draw_icon_text("\uf05a", "no pages found")
 
-	def draw_status(self, pages, stat):
-		if stat == "feed start":
-			txt = "Scanning next page..."
-		elif stat == "page fed":
-			txt = "saving data"
-			pages.append("f")
-		elif stat == "backside":
-			txt = "Saving backside"
-			pages.append("b")
-		elif stat.startswith("PAGE"):
-			_,pagenum = stat.split(" ")
-			txt = "Saving Page {}".format(pagenum)
-		else:
-			txt = stat
-
-		x,y=5,5
-		xsep=20
-		ysep=20
+	def draw_progress(self, progress, *args):
 		with canvas(self.oled) as draw:
-			for i,p in enumerate(pages):
-				if p == "b":
-					x -= xsep
-					document(draw,x,y+ysep,i+1,backside=True)
-				else:
-					document(draw,x,y,i+1)
-				x += xsep
-			draw.text((3,50),txt,font=loadfont("ProggyTiny.ttf",14))
+			progress.draw(draw, self.oled, *args)
+
 
 class Button(object):
 	"""a physical button"""
@@ -526,7 +538,8 @@ class IO_Mgr(object):
 
 	# called as callback from server scanner.run, server comms
 	# return true to exit scanner running
-	def handle_status(self, pages):
+	def handle_status(self):
+		progress = ProgressPage()
 		def response(msg):
 			msg,*args = msg.split(":",maxsplit=1)
 			msg = msg.strip()
@@ -537,7 +550,7 @@ class IO_Mgr(object):
 			elif msg == "empty scan":
 				self.screen.draw_empty()
 			else:
-				self.screen.draw_status(pages, msg)
+				self.screen.draw_progress(progress, msg)
 		return response
 
 
@@ -572,8 +585,7 @@ class IO_Mgr(object):
 				for s in self.menu.settings:
 					logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 					settings[s.setting_name] = s.setting_values[s.index()]
-				pages=[]
-				scanner.run(settings,self.handle_status(pages))
+				scanner.run(settings,self.handle_status())
 				scanner.cleanup()
 
 
