@@ -276,6 +276,9 @@ class Menu(object):
 
 class Screen(object):
 	"""Represents the OLED scren"""
+
+	FA = loadfont("fontawesome-webfont.ttf",25)
+
 	def __init__(self,init_menu):
 		super(Screen, self).__init__()
 		self.sleep_timer=None
@@ -291,12 +294,11 @@ class Screen(object):
 	def _welcome(self):
 		self.activate()
 		font = loadfont("Raleway-Bold.ttf",18)
-		FA = loadfont("fontawesome-webfont.ttf",25)
 		char = "\uf118"
 		with canvas(self.oled) as draw:
 			draw.text((25,5), "Welcome",fill="white",font=font)
-			w,h = draw.textsize(char,font=FA)
-			draw.text((self.oled.width/2-w/2,self.oled.height*2/3-h/2),char,fill="white",font=FA)
+			w,h = draw.textsize(char,font=self.FA)
+			draw.text((self.oled.width/2-w/2,self.oled.height*2/3-h/2),char,fill="white",font=self.FA)
 			"""
 			x=self.oled.width/2
 			y=self.oled.height*2/3
@@ -348,12 +350,11 @@ class Screen(object):
 		self.term=None
 		if txtfont is None:
 			txtfont = loadfont("Volter__28Goldfish_29.ttf",9)
-		FA = loadfont("fontawesome-webfont.ttf",25)
 		with canvas(self.oled) as draw:
 			w,h = draw.textsize(txt,font=txtfont)
 			draw.text((self.oled.width/2-w/2,self.oled.height*2/3-h/2), txt,fill="white",font=txtfont)
-			w,h = draw.textsize(icon,font=FA)
-			draw.text((self.oled.width/2-w/2,self.oled.height/3-h/2),icon,fill="white",font=FA)
+			w,h = draw.textsize(icon,font=self.FA)
+			draw.text((self.oled.width/2-w/2,self.oled.height/3-h/2),icon,fill="white",font=self.FA)
 
 	def draw_err(self, msg):
 		self.draw_icon_text("\uf071", msg)
