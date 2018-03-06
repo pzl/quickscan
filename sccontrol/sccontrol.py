@@ -561,6 +561,23 @@ class IO_Mgr(object):
 		while True:
 			self.interface.listen(self.button_press)
 
+	def scan(self):
+		try:
+			scanner = Scanner()
+		except ConnectionRefusedError:
+			logging.debug("could not connect to scingest")
+			self.screen.draw_err("couldn't find server")
+			time.sleep(2)
+			self.screen.draw_menu(self.menu)
+			return
+
+		settings = {}
+		for s in self.menu.settings:
+			logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
+			settings[s.setting_name] = s.setting_values[s.index()]
+		scanner.run(settings,self.handle_status())
+		scanner.cleanup()
+
 	def button_press(self,action):
 		if self.screen.is_asleep():
 			self.screen.on()
@@ -576,20 +593,7 @@ class IO_Mgr(object):
 			self.screen.draw_menu(self.menu)
 		elif action == 'scan':
 			self.screen.draw_scan()
-			try:
-				scanner = Scanner()
-			except ConnectionRefusedError:
-				logging.debug("could not connect to scingest")
-				self.screen.draw_err("couldn't find server")
-				time.sleep(2)
-				self.screen.draw_menu(self.menu)
-			else:
-				settings = {}
-				for s in self.menu.settings:
-					logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
-					settings[s.setting_name] = s.setting_values[s.index()]
-				scanner.run(settings,self.handle_status())
-				scanner.cleanup()
+			self.scan()
 
 
 def cleanup_at_exit():
