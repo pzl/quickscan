@@ -6,7 +6,6 @@ except RuntimeError:
 from luma.core.interface.serial import i2c
 from luma.oled.device import sh1106
 from luma.core.render import canvas
-from luma.core.virtual import terminal
 try:
 	from luma.emulator.device import pygame
 except ImportError:
@@ -28,6 +27,36 @@ def is_pi():
 
 def circle(x,y,r):
 	return (x-r,y-r,x+r,y+r)
+
+def document(d,x,y,n,backside=False):
+	ratio=(8.5,11)
+	scale=1.5
+	#d.rectangle((x,y,x+ratio[0]*scale,y+ratio[1]*scale),outline="white")
+	if backside:
+		d.polygon(
+			(
+				x+(ratio[0]*scale)/3,y,
+				x+ratio[0]*scale,y,
+				x+ratio[0]*scale,y+ratio[1]*scale,
+				x,y+ratio[1]*scale,
+				x,y+(ratio[1]*scale)/4
+			),
+			outline="white"
+		)
+	else:
+		d.polygon(
+			(
+				x,y,
+				x+(ratio[0]*scale)*2/3,y,
+				x+(ratio[0]*scale)*2/3,y+(ratio[1]*scale)/4,
+				x+ratio[0]*scale,y+(ratio[1]*scale)/4,
+				x+ratio[0]*scale,y+ratio[1]*scale,
+				x,y+ratio[1]*scale,
+			),
+			outline="white"
+		)
+		d.line(( x+(ratio[0]*scale)*2/3,y,  x+ratio[0]*scale,y+(ratio[1]*scale)/4 ),fill="white",width=1)
+	d.text((x+(ratio[0]*scale)/2,y+(ratio[1]*scale)/2),str(n),fill="white",font=loadfont("tiny.ttf",6))
 
 class screen_timeout(object):
 	"""simple context manager for controlling a screen sleep time"""
@@ -282,7 +311,6 @@ class Screen(object):
 	def __init__(self,init_menu):
 		super(Screen, self).__init__()
 		self.sleep_timer=None
-		self.term=None
 		self.state='OFF'
 
 		self.oled = sh1106(i2c(port=1, address=0x3C)) if is_pi() else pygame(width=128, height=64)
@@ -334,12 +362,10 @@ class Screen(object):
 		self.oled.hide()
 
 	def draw_menu(self, menu):
-		self.term=None
 		with screen_timeout(self), canvas(self.oled) as draw:
 			menu.draw(draw, self.oled)
 
 	def draw_scan(self):
-		self.term=None
 		font = loadfont("Raleway-Bold.ttf",18)
 		self.activate() # not auto-dimming here
 		with canvas(self.oled) as draw:
@@ -347,7 +373,6 @@ class Screen(object):
 			draw.text((self.oled.width/2-w/2,self.oled.height/2-h/2),"Scanning...",font=font,fill="white")
 
 	def draw_icon_text(self, icon, txt, txtfont=None):
-		self.term=None
 		if txtfont is None:
 			txtfont = loadfont("Volter__28Goldfish_29.ttf",9)
 		with canvas(self.oled) as draw:
@@ -363,22 +388,33 @@ class Screen(object):
 	def draw_empty(self):
 		self.draw_icon_text("\uf05a", "no pages found")
 
-	def draw_status(self, stat):
-		if not self.term:
-			self.term = terminal(self.oled, font=loadfont("ProggyTiny.ttf",14), animate=False)
-		
+	def draw_status(self, pages, stat):
 		if stat == "feed start":
 			txt = "Scanning next page..."
 		elif stat == "page fed":
-			txt = "Processing page"
+			txt = "saving data"
+			pages.append("f")
 		elif stat == "backside":
-			txt = "Got backside of previous page"
+			txt = "Saving backside"
+			pages.append("b")
 		elif stat.startswith("PAGE"):
 			_,pagenum = stat.split(" ")
 			txt = "Saving Page {}".format(pagenum)
 		else:
 			txt = stat
-		self.term.println(txt)
+
+		x,y=5,5
+		xsep=20
+		ysep=20
+		with canvas(self.oled) as draw:
+			for i,p in enumerate(pages):
+				if p == "b":
+					x -= xsep
+					document(draw,x,y+ysep,i+1,backside=True)
+				else:
+					document(draw,x,y,i+1)
+				x += xsep
+			draw.text((3,50),txt,font=loadfont("ProggyTiny.ttf",14))
 
 class Button(object):
 	"""a physical button"""
@@ -490,17 +526,19 @@ class IO_Mgr(object):
 
 	# called as callback from server scanner.run, server comms
 	# return true to exit scanner running
-	def handle_status(self, msg):
-		msg,*args = msg.split(":",maxsplit=1)
-		msg = msg.strip()
-		if msg == "error":
-			self.screen.draw_err(*args)
-		elif msg == "pages end":
-			self.screen.draw_complete()
-		elif msg == "empty scan":
-			self.screen.draw_empty()
-		else:
-			self.screen.draw_status(msg)
+	def handle_status(self, pages):
+		def response(msg):
+			msg,*args = msg.split(":",maxsplit=1)
+			msg = msg.strip()
+			if msg == "error":
+				self.screen.draw_err(*args)
+			elif msg == "pages end":
+				self.screen.draw_complete()
+			elif msg == "empty scan":
+				self.screen.draw_empty()
+			else:
+				self.screen.draw_status(pages, msg)
+		return response
 
 
 	def listen(self):
@@ -534,7 +572,8 @@ class IO_Mgr(object):
 				for s in self.menu.settings:
 					logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 					settings[s.setting_name] = s.setting_values[s.index()]
-				scanner.run(settings,self.handle_status)
+				pages=[]
+				scanner.run(settings,self.handle_status(pages))
 				scanner.cleanup()
 
 
