@@ -308,7 +308,8 @@ class ProgressPage(object):
 	def __init__(self):
 		super(ProgressPage, self).__init__()
 		self.pages=[]
-		self.proggy = loadfont("ProggyTiny.ttf",14)
+		self.proggy = loadfont("ProggyTiny.ttf",12)
+		self.sidebar = Sidebar(15)
 		
 	def draw(self, c, d, msg):
 		if msg == "feed start":
@@ -324,6 +325,8 @@ class ProgressPage(object):
 			txt = "Saving Page {}".format(pagenum)
 		else:
 			txt = msg
+
+		self.sidebar.draw(c,d,self)
 
 		x,y=5,5
 		xsep=20
