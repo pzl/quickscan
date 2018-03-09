@@ -3,16 +3,19 @@ import socket
 import time
 import logging
 import random
+from PIL import Image, ImageDraw, ImageFont
 
 logging.basicConfig(level=logging.DEBUG,format="%(asctime)s %(levelname)7s : %(message)s")
 
 
 def sendjson(sock, obj):
 	return send(sock,json.dumps(obj))
+def sendb(sock, b):
+	msglen = len(b).to_bytes(4, byteorder='big')
+	sock.send(msglen+b)	
 def send(sock, s):
-	bindata = s.encode('utf8')
-	msglen = len(bindata).to_bytes(4, byteorder='big')
-	sock.send(msglen+bindata)
+	sendb(sock, s.encode('utf8'))
+
 
 def recv(sock):
 	pkt_len = sock.recv(4)
@@ -67,6 +70,19 @@ def normal_scan(sock):
 	send(sock, "feed start")
 	send(sock, "pages end")
 	send(sock, "complete")
+
+	req = recv(sock)
+	while req != None:
+		page = int(req.decode('utf8'))
+		im = Image.new('RGB', (240,320), (182,239,196))
+		draw = ImageDraw.Draw(im)
+		font = ImageFont.truetype('fonts/Raleway-Bold.ttf',80)
+		draw.text((90,100),str(page+1),font=font,fill=(0,0,0))
+		del font
+		del draw
+		sendb(sock, im.tobytes())
+		req = recv(sock)
+
 
 
 def empty_scan(sock):
