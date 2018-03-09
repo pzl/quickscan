@@ -15,7 +15,7 @@ class Scanner(object):
 	def cleanup(self):
 		self.socket.close()
 	def run(self, options, process_msg):
-		self._send({"scan":True,"options":options})
+		self._sendjson({"scan":True,"options":options})
 
 		msg = self._get()
 		while msg is not None:
@@ -26,10 +26,14 @@ class Scanner(object):
 				break
 			msg = self._get()
 
-	def _send(self, thing):
-		binjson = json.dumps(thing).encode('utf8')
-		msglen = len(binjson).to_bytes(4, byteorder='big')
-		self.socket.send(msglen+binjson)
+	def _sendb(self, b):
+		msglen = len(b).to_bytes(4, byteorder='big')
+		self.socket.send(msglen+b)
+	def _send(self, s):
+		self._sendb(s.encode('utf8'))
+	def _sendjson(self, thing):
+		self._send(json.dumps(thing))
+
 	def _get(self):
 		pkt_len = self.socket.recv(4)
 		if pkt_len == b'':
