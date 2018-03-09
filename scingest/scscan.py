@@ -31,12 +31,14 @@ if __name__ == "__main__":
 	sendjson(s,{
 		"scan":True,
 		"options": {
-			"resolution": 400
+			"resolution": 400,
+			"mode": "Color"
 		}
 	})
 
 
 	msg = recv(s)
+	m=None
 	while msg is not None:
 		m = msg.decode('utf8')
 		print(m)

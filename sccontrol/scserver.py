@@ -74,6 +74,7 @@ def normal_scan(sock):
 	req = recv(sock)
 	while req != None:
 		page = int(req.decode('utf8'))
+		logging.info("got page request for [{}]".format(page))
 		im = Image.new('RGB', (240,320), (182,239,196))
 		draw = ImageDraw.Draw(im)
 		font = ImageFont.truetype('fonts/Raleway-Bold.ttf',80)
