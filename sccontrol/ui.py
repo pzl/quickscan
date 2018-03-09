@@ -36,10 +36,13 @@ class Button_Interface(object):
 	def cleanup(self):
 		GPIO.cleanup()
 
-	def listen(self, cb):
+	def listen(self, event_callback):
+		"""Synchronously waits for main button press
+			while other buttons are handled in another thread
+		"""
 		SCAN_BTN=16
 		menu_btns = [b for b in self.buttons if b.pin != SCAN_BTN]
-		self.cb = cb
+		self.event_callback = event_callback
 		logging.debug("enabling buttons")
 		for b in menu_btns:
 			b.listen(self.button_press)
@@ -49,27 +52,21 @@ class Button_Interface(object):
 		logging.debug("disabling buttons")
 		for b in menu_btns:
 			b.stop_listening()
-		self.cb("scan")
+		event_callback("scan")
 
 	def button_press(self,pin):
 		if self.screen.is_asleep():
 			self.screen.on()
 			return
 		if pin == 11:
-			self.cb("up")
+			self.event_callback("up")
 		elif pin == 13:
-			self.cb("down")
+			self.event_callback("down")
 		elif pin == 15:
-			self.cb("enter")
-		"""
-		elif pin == 16:
-			# SCAN
-
-			# note: the following crashes on Pi Zero
-			#for b in self.buttons:
-			#	b.stop_listening()
-			self.screen.draw_scan()
-		"""
+			self.event_callback("enter")
+		#elif pin == 16: #SCAN
+		# not handling scan press in thread because
+		# self.buttons[x].stop_listening crashes on Pi Zero
 
 class Keys_Interface(object):
 	"""Keyboard interface for interacting via terminal (e.g. desktop testing)"""
@@ -81,7 +78,7 @@ class Keys_Interface(object):
 	def cleanup(self):
 		termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_term_stg)
 
-	def listen(self, cb):
+	def listen(self, event_callback):
 		try:
 			tty.setraw(sys.stdin.fileno())
 			ch = sys.stdin.read(1)
@@ -92,12 +89,12 @@ class Keys_Interface(object):
 			termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_term_stg)
 		
 		if ch == "\x1b[A":
-			cb("up")
+			event_callback("up")
 		elif ch == "\x1b[B":
-			cb("down")
+			event_callback("down")
 		elif ch == "\r":
-			cb("enter")
+			event_callback("enter")
 		elif ch == " ":
-			cb("scan")
+			event_callback("scan")
 		elif ch == "\x03":
 			raise KeyboardInterrupt

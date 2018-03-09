@@ -14,15 +14,15 @@ class Scanner(object):
 
 	def cleanup(self):
 		self.socket.close()
-	def run(self, options, callback):
+	def run(self, options, process_msg):
 		self._send({"scan":True,"options":options})
 
 		msg = self._get()
 		while msg is not None:
 			s = msg.decode("utf8")
 			logging.info(s)
-			ex = callback(s)
-			if ex:
+			exit_read_loop = process_msg(s)
+			if exit_read_loop:
 				break
 			msg = self._get()
 
