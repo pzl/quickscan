@@ -213,6 +213,8 @@ class Scanner(object):
                 logging.debug("empty scan file. Removing")
                 client_notify("empty scan")
                 self.removeFile(filename)
+            else:
+                client_notify("complete")
 
     # called as callback in Client socket processing
     def scan(self, options, client_notify=NOOP):

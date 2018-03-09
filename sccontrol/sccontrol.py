@@ -74,8 +74,9 @@ class IO_Mgr(object):
 			msg = msg.strip()
 			if msg == "error":
 				self.screen.draw_err(*args)
-			elif msg == "pages end":
+			elif msg == "complete":
 				self.screen.draw_complete()
+				return True # break read-cycle to handle scan completion
 			elif msg == "empty scan":
 				self.screen.draw_empty()
 			else:

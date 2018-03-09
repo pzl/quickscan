@@ -66,6 +66,7 @@ def normal_scan(sock):
 			side = random.choice(["f","b"])
 	send(sock, "feed start")
 	send(sock, "pages end")
+	send(sock, "complete")
 
 
 def empty_scan(sock):
