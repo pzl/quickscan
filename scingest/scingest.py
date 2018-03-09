@@ -51,10 +51,11 @@ class Client(object):
         self.sock.close()
 
 
-    def _send(self, string):
-        data = string.encode('utf8')
+    def _sendb(self, data):
         msglen = len(data).to_bytes(4, byteorder='big')
         self.sock.send(msglen+data)
+    def _send(self, string):
+        self._sendb(string.encode('utf8'))
     def _sendjson(self, thing):
         return self._send(json.dumps(thing))
     def _getmsg(self):
@@ -84,6 +85,18 @@ class Client(object):
         opts = msg['options'] if 'options' in msg else {}
         return scan,opts
 
+    def _get_data_req(self):
+        msg = self._getmsg()
+        if msg is None:
+            return None
+        page = int(msg.decode('utf8'))
+        return page
+
+
+    def _send_page_data(self, data):
+        scaled_data = data.resize((240,320)).tobytes()
+        self._sendb(scaled_data)
+
     def send_progress(self, action, *args):
         logging.debug("** sending to client: {} : {}".format(action,args))
         try:
@@ -95,8 +108,27 @@ class Client(object):
     def process(self, cb):
         # client should contact us first with options
         cmd,opts = self._get_command()
-        if cmd:
-            cb(opts, self.send_progress)
+        if not cmd:
+            return
+
+        success,data = cb(opts, self.send_progress)
+        if not success:
+            logging.debug('scan did not produce images, skipping page-request')
+            return
+        logging.debug('scan produced images, listening for page requests')
+        page = self._get_data_req()
+        while page != None:
+            logging.debug('got page request')
+            if page < 0 or page >= len(data):
+                logging.debug('page request out of range')
+                continue
+            logging.debug('sending page {}'.format(page))
+            self._send_page_data(data[page])
+            logging.debug('listening for next page request')
+            page = self._get_data_req()
+        logging.debug('Client process complete')
+
+
 
 
 class PageFeed(object):
@@ -188,13 +220,16 @@ class Scanner(object):
 
     def scanwrite(self, feed, filename, client_notify):
         logging.info("creating {}".format(filename))
+        pages=[]
         with TiffImagePlugin.AppendingTiffWriter(filename,new=True) as tiff:
             for i,page in enumerate(feed):
                 logging.info('saving page {}...'.format(i+1))
                 client_notify("PAGE {}".format(i+1))
                 page.save(tiff)
                 tiff.newFrame()
+                pages.append(page)
                 logging.debug("saved")
+        return pages
 
 
     def perform_scan(self, device, client_notify):
@@ -202,28 +237,32 @@ class Scanner(object):
         filename = "scan-{}.tiff".format(now.strftime("%Y%m%d%H%M%S_%f"))
         feeder = PageFeed(device, client_notify)
         try:
-            self.scanwrite(feeder, filename, client_notify)
+            pages = self.scanwrite(feeder, filename, client_notify)
         except sane._sane.error as e:
             logging.error(str(e))
             logging.info("aborting scan, removing file")
             client_notify("error",str(e))
             self.removeFile(filename)
+            return False,[]
         else:
-            if os.path.getsize(filename) == 0:
+            if len(pages) == 0 or os.path.getsize(filename) == 0:
                 logging.debug("empty scan file. Removing")
                 client_notify("empty scan")
                 self.removeFile(filename)
+                return False,pages
             else:
                 client_notify("complete")
+                return True,pages
 
     # called as callback in Client socket processing
     def scan(self, options, client_notify=NOOP):
         logging.info('scan starting')
         device = self.connect()
         self.setopts(device, options)
-        self.perform_scan(device, client_notify)
+        success,images = self.perform_scan(device, client_notify)
         logging.info('scan complete')
         self.disconnect()
+        return success,images
 
     def cleanup(self):
         logging.info('cleaning up SANE')

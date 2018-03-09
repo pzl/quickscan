@@ -1,5 +1,6 @@
 import json
 import socket
+from PIL import Image
 
 def sendjson(sock, obj):
 	return send(sock,json.dumps(obj))
@@ -37,7 +38,20 @@ if __name__ == "__main__":
 
 	msg = recv(s)
 	while msg is not None:
-		print(msg.decode('utf8'))
+		m = msg.decode('utf8')
+		print(m)
+		if m == 'complete' or m.startswith('error') or m == 'empty scan':
+			break
 		msg = recv(s)
+	if m == 'complete':
+		print("asking for page 1")
+		send(s, "1")
+		print("waiting for page data")
+		data = recv(s)
+		if data is None:
+			print("didn't get page? got None")
+		else:
+			img = Image.frombytes('RGB', (240,320), data, 'raw')
+			img.save("test.png")
 	s.close()
 
