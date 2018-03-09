@@ -52,6 +52,6 @@ if __name__ == "__main__":
 			print("didn't get page? got None")
 		else:
 			img = Image.frombytes('RGB', (240,320), data, 'raw')
-			img.save("test.png")
+			img.show()
 	s.close()
 
