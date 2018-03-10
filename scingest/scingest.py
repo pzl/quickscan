@@ -10,6 +10,7 @@ import atexit
 import sys, os
 import time
 import datetime
+import random
 
 """
 Interesting options:
@@ -97,6 +98,12 @@ class Client(object):
         scaled_data = data.resize((240,320)).tobytes()
         self._sendb(scaled_data)
 
+    def _send_crop_data(self, data):
+        w,h = data.size
+        x,y = random.randrange(w-240),random.randrange(h-320)
+        cropped_data = data.crop((x,y,x+240,y+320)).tobytes()
+        self._sendb(cropped_data)
+
     def send_progress(self, action, *args):
         logging.debug("** sending to client: {} : {}".format(action,args))
         try:
@@ -116,14 +123,20 @@ class Client(object):
             logging.debug('scan did not produce images, skipping page-request')
             return
         logging.debug('scan produced images, listening for page requests')
+        last_page = None
         page = self._get_data_req()
         while page != None:
             logging.debug('got page request')
             if page < 0 or page >= len(data):
                 logging.debug('page request out of range')
                 continue
-            logging.debug('sending page {}'.format(page))
-            self._send_page_data(data[page])
+            if last_page != page:
+                logging.debug('sending page {}'.format(page))
+                self._send_page_data(data[page])
+            else:
+                logging.debug('already sent page {}, sending crop sample'.format(page))
+                self._send_crop_data(data[page])
+            last_page = page
             logging.debug('listening for next page request')
             page = self._get_data_req()
         logging.debug('Client process complete')
