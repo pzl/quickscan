@@ -7,3 +7,4 @@
 *.tiff
 venv/
 __pycache__/
+fonts/
