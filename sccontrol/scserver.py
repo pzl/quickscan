@@ -59,7 +59,7 @@ def normal_scan(sock):
 	side="f"
 	for i in range(random.randint(2,10)):
 		send(sock, "feed start")
-		time.sleep(3 if side == "f" else 0.5)
+		time.sleep(1 if side == "f" else 0.5)
 		send(sock, "page fed" if side == "f" else "backside")
 		time.sleep(0.5)
 		send(sock, "PAGE {}".format(i+1))
