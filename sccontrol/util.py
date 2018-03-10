@@ -8,35 +8,37 @@ def is_pi():
 def circle(x,y,r):
 	return (x-r,y-r,x+r,y+r)
 
-def document(d,x,y,n,backside=False):
+def document(d,x,y,n,backside=False,active=False):
 	ratio=(8.5,11)
 	scale=1.5
-	#d.rectangle((x,y,x+ratio[0]*scale,y+ratio[1]*scale),outline="white")
+
+	w=ratio[0]*scale
+	h=ratio[1]*scale
+	#d.rectangle((x,y,x+w,y+h),outline="white")
 	if backside:
-		d.polygon(
-			(
-				x+(ratio[0]*scale)/3,y,
-				x+ratio[0]*scale,y,
-				x+ratio[0]*scale,y+ratio[1]*scale,
-				x,y+ratio[1]*scale,
-				x,y+(ratio[1]*scale)/4
-			),
-			outline="white"
+		pts = (
+			x+w/3,y,
+			x+w,y,
+			x+w,y+h,
+			x,y+h,
+			x,y+h/4
 		)
 	else:
-		d.polygon(
-			(
-				x,y,
-				x+(ratio[0]*scale)*2/3,y,
-				x+(ratio[0]*scale)*2/3,y+(ratio[1]*scale)/4,
-				x+ratio[0]*scale,y+(ratio[1]*scale)/4,
-				x+ratio[0]*scale,y+ratio[1]*scale,
-				x,y+ratio[1]*scale,
-			),
-			outline="white"
+		pts = (
+			x,y,
+			x+w*2/3,y,
+			x+w*2/3,y+h/4,
+			x+w,y+h/4,
+			x+w,y+h,
+			x,y+h,
 		)
-		d.line(( x+(ratio[0]*scale)*2/3,y,  x+ratio[0]*scale,y+(ratio[1]*scale)/4 ),fill="white",width=1)
-	d.text((x+(ratio[0]*scale)/2,y+(ratio[1]*scale)/2),str(n),fill="white",font=loadfont("tiny.ttf",6))
+		d.line(( x+w*2/3,y,  x+w,y+h/4 ),fill="white",width=1)
+
+	if active:
+		d.polygon(pts, fill="white")
+	else:
+		d.polygon(pts, outline="white")
+	d.text((x+w/2,y+h/2),str(n),fill="black" if active else "white",font=loadfont("tiny.ttf",6))
 
 def loadfont(name, size=12):
 		fontp = os.path.abspath(os.path.join(

@@ -154,7 +154,14 @@ class ProgressPage(object):
 		self.pages=[]
 		self.proggy = loadfont("ProggyTiny.ttf",12)
 		self.sidebar = Sidebar(15)
+		self.selected=0
 		
+	def up(self):
+		self.selected = max(0, self.selected-1)
+
+	def down(self):
+		self.selected = min(self.selected+1, len(self.pages)-1)
+
 	def draw(self, c, d, msg):
 		if msg == "feed start":
 			txt = "Scanning next page..."
@@ -176,13 +183,13 @@ class ProgressPage(object):
 		xsep=20
 		ysep=20
 		for i,p in enumerate(self.pages):
-			if p == "b":
+			back = p == "b"
+			if back:
 				x -= xsep
-				document(c,x,y+ysep,i+1,backside=True)
-			else:
-				document(c,x,y,i+1)
+			document(c,x,y+(ysep if back else 0),i+1,backside=back,active=i==self.selected)
 			x += xsep
-		c.text((3,50),txt,font=self.proggy)
+		if txt:
+			c.text((3,50),txt,font=self.proggy)
 
 
 

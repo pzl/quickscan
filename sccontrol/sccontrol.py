@@ -67,8 +67,7 @@ class IO_Mgr(object):
 
 	# called as callback from server scanner.run, server comms
 	# return true to exit scanner running
-	def handle_status(self):
-		progress = ProgressPage()
+	def handle_status(self, progress):
 		def response(msg):
 			msg,*args = msg.split(":",maxsplit=1)
 			msg = msg.strip()
@@ -108,11 +107,32 @@ class IO_Mgr(object):
 		for s in self.menu.settings:
 			logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 			settings[s.setting_name] = s.setting_values[s.index()]
-		success = scanner.run(settings,self.handle_status())
+
+		progress = ProgressPage()
+		success = scanner.run(settings,self.handle_status(progress))
+
+		if success:
+			self.listen(self.progress_button_handler(scanner,progress))
+		
 		self.listen(self.acknowledge_button_handler)
 
 		scanner.cleanup()
 		self.screen.draw_menu(self.menu)
+
+	def progress_button_handler(self,scanner,progress):
+		def fn(action):
+			if action == 'up':
+				progress.up()
+				self.screen.draw_progress(progress,"")
+			elif action == 'down':
+				progress.down()
+				self.screen.draw_progress(progress,"")
+			elif action == 'enter':
+				pass
+			elif action == 'scan':
+				self.screen.draw_complete()
+				raise StopIteration
+		return fn
 
 	def menu_button_handler(self,action):
 		if self.screen.is_asleep():
