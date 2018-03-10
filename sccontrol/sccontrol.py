@@ -6,7 +6,7 @@ import logging
 from util import is_pi
 from scan import Scanner
 from ui import Button_Interface, Keys_Interface
-from display import MenuPage, SettingPage, ProgressPage, Screen
+from display import MenuPage, SettingPage, ProgressPage, Screen, LCD, Mock_LCD
 
 logging.basicConfig(level=logging.DEBUG,format="%(asctime)s %(levelname)7s : %(message)s")
 
@@ -58,12 +58,13 @@ class Menu(object):
 
 class IO_Mgr(object):
 	"""Manager for a collection of buttons"""
-	def __init__(self, interface, screen, menu):
+	def __init__(self, interface, screen, menu, lcd):
 		super(IO_Mgr, self).__init__()
 		self.buttons=[]
 		self.interface = interface
 		self.screen=screen
 		self.menu = menu
+		self.lcd = lcd
 
 	# called as callback from server scanner.run, server comms
 	# return true to exit scanner running
@@ -131,9 +132,7 @@ class IO_Mgr(object):
 				self.screen.draw_progress(progress,"")
 			elif action == 'enter':
 				data = scanner.get_thumbnail(progress.selected)
-				from PIL import Image
-				img = Image.frombytes('RGB', (240,320), data, 'raw')
-				img.show()
+				self.lcd.show(data)
 			elif action == 'scan':
 				self.screen.draw_complete()
 				raise StopIteration
@@ -170,7 +169,8 @@ def main():
 	menu = Menu()
 	screen = Screen(menu)
 	interface = Button_Interface(pins) if is_pi() else Keys_Interface()
-	io = IO_Mgr(interface, screen, menu)
+	lcd = LCD() if is_pi() else Mock_LCD()
+	io = IO_Mgr(interface, screen, menu, lcd)
 	io.listen()
 
 if __name__ == "__main__":

@@ -10,6 +10,14 @@ try:
 	from luma.emulator.device import pygame
 except ImportError:
 	pass
+try:
+	from RPi import GPIO
+	from tft import TFT24T
+	import spidev
+except (ImportError, RuntimeError):
+	pass
+from PIL import Image
+
 
 
 def draw_bottom_button(draw, device, sidebar_width, height, text, font):
@@ -17,7 +25,50 @@ def draw_bottom_button(draw, device, sidebar_width, height, text, font):
 	w,h = draw.textsize(text, font=font)
 	draw.text( ((device.width-sidebar_width)/2-w/2, device.height-height/2-h/2), text, font=font, fill="black" )
 
+class Mock_LCD(object):
+	"""LCD imitator for development purposes"""
+	def __init__(self):
+		super(Mock_LCD, self).__init__()
+	def backlight(self, onoff):
+		pass
+	def cleanup(self):
+		pass
+	def clear(self):
+		pass
+	def show(self, data):
+		image = Image.frombytes('RGB', (240,320), data, 'raw')
+		image.show()
 
+class LCD(object):
+	"""TFT display"""
+
+	# pin definitions
+	DC = 18
+	RST = 22 # if omitted, tie to +3.3V
+	LED = 12 # if omitted, tie to +3.3V
+
+	def __init__(self):
+		super(LCD, self).__init__()
+		GPIO.setmode(GPIO.BOARD)
+		self.device = TFT24T(spidev.SpiDev(), GPIO, landscape=False)
+		self.device.initLCD(self.DC, self.RST, self.LED)
+		atexit.register(self.cleanup)
+
+	def backlight(self, onoff):
+		self.device.backlite(onoff)
+	def off(self):
+		GPIO.output(self.RST, GPIO.LOW)
+
+	def cleanup(self):
+		self.backlight(0)
+		self.off()
+
+	def clear(self):
+		self.device.clear()
+
+	def show(self, data):
+		image = Image.frombytes('RGB', (240,320), data, 'raw')
+		self.device.display(image)
 
 class Sidebar(object):
 	"""draws the button sidebar"""
