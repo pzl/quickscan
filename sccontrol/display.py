@@ -254,7 +254,7 @@ class ProgressPage(object):
 			document(c,x,y+(ysep if back else 0),i+1,backside=back,active=i==self.selected and self.complete)
 			x += xsep
 		if txt:
-			c.text((3,50),txt,font=self.proggy)
+			c.text((3,50),txt,fill="white",font=self.proggy)
 
 
 
