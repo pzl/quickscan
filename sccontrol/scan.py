@@ -31,6 +31,12 @@ class Scanner(object):
 		# False = interrupted scan
 		return None if msg is None else exit_read_loop
 
+
+	def get_thumbnail(self, page):
+		logging.debug('requesting thumbnail for page {}'.format(page))
+		self._send(str(page))
+		return self._get()
+
 	def _sendb(self, b):
 		msglen = len(b).to_bytes(4, byteorder='big')
 		self.socket.send(msglen+b)

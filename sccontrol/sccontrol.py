@@ -130,7 +130,10 @@ class IO_Mgr(object):
 				progress.down()
 				self.screen.draw_progress(progress,"")
 			elif action == 'enter':
-				pass
+				data = scanner.get_thumbnail(progress.selected)
+				from PIL import Image
+				img = Image.frombytes('RGB', (240,320), data, 'raw')
+				img.show()
 			elif action == 'scan':
 				self.screen.draw_complete()
 				raise StopIteration
