@@ -22,9 +22,14 @@ class Scanner(object):
 			s = msg.decode("utf8")
 			logging.info(s)
 			exit_read_loop = process_msg(s)
-			if exit_read_loop:
+			if exit_read_loop is not None:
 				break
 			msg = self._get()
+
+		# None = broken pipe
+		# True = successful scan
+		# False = interrupted scan
+		return None if msg is None else exit_read_loop
 
 	def _sendb(self, b):
 		msglen = len(b).to_bytes(4, byteorder='big')

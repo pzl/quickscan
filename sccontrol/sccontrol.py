@@ -74,19 +74,25 @@ class IO_Mgr(object):
 			msg = msg.strip()
 			if msg == "error":
 				self.screen.draw_err(*args)
+				return False # @todo: what if there are further status messages?
 			elif msg == "complete":
-				self.screen.draw_complete()
 				return True # break read-cycle to handle scan completion
 			elif msg == "empty scan":
 				self.screen.draw_empty()
+				return False
 			else:
 				self.screen.draw_progress(progress, msg)
 		return response
 
 
-	def listen(self):
+	def listen(self, handler=None):
+		if handler is None:
+			handler = self.menu_button_handler
 		while True:
-			self.interface.listen(self.button_press)
+			try:
+				self.interface.listen(handler)
+			except StopIteration:
+				break
 
 	def scan(self):
 		try:
@@ -102,10 +108,13 @@ class IO_Mgr(object):
 		for s in self.menu.settings:
 			logging.debug("setting {} = {}".format(s.setting_name,s.setting_values[s.index()]))
 			settings[s.setting_name] = s.setting_values[s.index()]
-		scanner.run(settings,self.handle_status())
-		scanner.cleanup()
+		success = scanner.run(settings,self.handle_status())
+		self.listen(self.acknowledge_button_handler)
 
-	def button_press(self,action):
+		scanner.cleanup()
+		self.screen.draw_menu(self.menu)
+
+	def menu_button_handler(self,action):
 		if self.screen.is_asleep():
 			self.screen.on()
 			return
@@ -122,6 +131,9 @@ class IO_Mgr(object):
 			self.screen.draw_scan()
 			self.scan()
 
+
+	def acknowledge_button_handler(self,action):
+		raise StopIteration
 
 def cleanup_at_exit():
 	signal(SIGTERM, lambda signum, stack_frame: sys.exit(1))
