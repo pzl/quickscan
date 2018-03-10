@@ -55,9 +55,6 @@ class Button_Interface(object):
 		event_callback("scan")
 
 	def button_press(self,pin):
-		if self.screen.is_asleep():
-			self.screen.on()
-			return
 		if pin == 11:
 			self.event_callback("up")
 		elif pin == 13:
