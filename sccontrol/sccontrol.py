@@ -119,6 +119,7 @@ class IO_Mgr(object):
 		
 		self.listen(self.acknowledge_button_handler)
 
+		self.lcd.cleanup()
 		scanner.cleanup()
 		self.screen.draw_menu(self.menu)
 

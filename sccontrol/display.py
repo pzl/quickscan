@@ -51,22 +51,28 @@ class LCD(object):
 		super(LCD, self).__init__()
 		GPIO.setmode(GPIO.BOARD)
 		self.device = TFT24T(spidev.SpiDev(), GPIO, landscape=False)
-		self.device.initLCD(self.DC, self.RST, self.LED)
+		self.state=0
 		atexit.register(self.cleanup)
 
 	def backlight(self, onoff):
 		self.device.backlite(onoff)
 	def off(self):
 		GPIO.output(self.RST, GPIO.LOW)
-
-	def cleanup(self):
 		self.backlight(0)
+		self.state=0
+	def on(self):
+		self.device.initLCD(self.DC, self.RST, self.LED)
+		self.backlight(1)
+		self.state=1
+	def cleanup(self):
 		self.off()
 
 	def clear(self):
 		self.device.clear()
 
 	def show(self, data):
+		if not self.state:
+			self.on()
 		image = Image.frombytes('RGB', (240,320), data, 'raw')
 		self.device.display(image)
 
