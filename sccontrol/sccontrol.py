@@ -75,6 +75,7 @@ class IO_Mgr(object):
 				self.screen.draw_err(*args)
 				return False # @todo: what if there are further status messages?
 			elif msg == "complete":
+				progress.complete = True
 				return True # break read-cycle to handle scan completion
 			elif msg == "empty scan":
 				self.screen.draw_empty()
@@ -112,6 +113,7 @@ class IO_Mgr(object):
 		success = scanner.run(settings,self.handle_status(progress))
 
 		if success:
+			self.screen.draw_progress(progress,"")
 			self.listen(self.progress_button_handler(scanner,progress))
 		
 		self.listen(self.acknowledge_button_handler)

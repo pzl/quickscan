@@ -11,6 +11,14 @@ try:
 except ImportError:
 	pass
 
+
+def draw_bottom_button(draw, device, sidebar_width, height, text, font):
+	draw.rectangle((0,device.height-height, device.width-sidebar_width, device.height), fill="white")
+	w,h = draw.textsize(text, font=font)
+	draw.text( ((device.width-sidebar_width)/2-w/2, device.height-height/2-h/2), text, font=font, fill="black" )
+
+
+
 class Sidebar(object):
 	"""draws the button sidebar"""
 
@@ -127,15 +135,11 @@ class MenuPage(object):
 					self.menu_item_x_stop,
 					y+height+self.menu_item_vpad*2),
 				outline="white")
-	def _draw_scan_btn(self,c, d):
-		c.rectangle((0,d.height-self.scanbtn_height,d.width-self.sidebar_width,d.height),fill="white")
-		w,h = c.textsize("SCAN!",font=self.menu_font)
-		c.text(((d.width-self.sidebar_width)/2-w/2,d.height-self.scanbtn_height/2-h/2),"SCAN!", font=self.menu_font, fill="black")
 
 	def draw(self, c, d):
 		self._draw_title(c)
 		self._draw_items(c, d)
-		self._draw_scan_btn(c, d)
+		draw_bottom_button(c, d, self.sidebar_width, self.scanbtn_height, "SCAN!", self.menu_font)
 		self.sidebar.draw(c,d,self)
 
 
@@ -153,8 +157,10 @@ class ProgressPage(object):
 		super(ProgressPage, self).__init__()
 		self.pages=[]
 		self.proggy = loadfont("ProggyTiny.ttf",12)
+		self.button_font = loadfont("ProggyTiny.ttf",16)
 		self.sidebar = Sidebar(15)
 		self.selected=0
+		self.complete=False
 		
 	def up(self):
 		self.selected = max(0, self.selected-1)
@@ -177,7 +183,9 @@ class ProgressPage(object):
 		else:
 			txt = msg
 
-		self.sidebar.draw(c,d,self)
+		if self.complete:
+			self.sidebar.draw(c,d,self)
+			draw_bottom_button(c, d, self.sidebar.width, 10, "Accept", self.button_font)
 
 		x,y=5,5
 		xsep=20
@@ -186,7 +194,7 @@ class ProgressPage(object):
 			back = p == "b"
 			if back:
 				x -= xsep
-			document(c,x,y+(ysep if back else 0),i+1,backside=back,active=i==self.selected)
+			document(c,x,y+(ysep if back else 0),i+1,backside=back,active=i==self.selected and self.complete)
 			x += xsep
 		if txt:
 			c.text((3,50),txt,font=self.proggy)
