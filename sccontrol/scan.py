@@ -3,13 +3,16 @@ import socket
 import atexit
 import json
 import logging
+import sys
 
 class Scanner(object):
 	"""communication with scingest"""
 	def __init__(self):
 		super(Scanner, self).__init__()
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.socket.connect(("192.168.1.28",5555))
+		hostname = sys.argv[1] if len(sys.argv) > 1 else "closet"
+		port = int(sys.argv[2]) if len(sys.argv) > 2 else 5555
+		self.socket.connect((socket.gethostbyname(hostname),port))
 		atexit.register(self.cleanup)
 
 	def cleanup(self):
