@@ -203,6 +203,9 @@ class Scanner(object):
         self.get_device('FUJITSU')
         logging.debug('got scanning device')
         atexit.register(self.cleanup)
+        self.output_dir = "" if len(sys.argv) < 2 else sys.argv[1]
+        os.makedirs(self.output_dir,exist_ok=False)
+
 
     def get_device(self, manufac):
         devs = sane.get_devices()
@@ -248,20 +251,21 @@ class Scanner(object):
     def perform_scan(self, device, client_notify):
         now = datetime.datetime.now()
         filename = "scan-{}.tiff".format(now.strftime("%Y%m%d%H%M%S_%f"))
+        path = os.path.join(self.output_dir, filename)
         feeder = PageFeed(device, client_notify)
         try:
-            pages = self.scanwrite(feeder, filename, client_notify)
+            pages = self.scanwrite(feeder, path, client_notify)
         except sane._sane.error as e:
             logging.error(str(e))
             logging.info("aborting scan, removing file")
             client_notify("error",str(e))
-            self.removeFile(filename)
+            self.removeFile(path)
             return False,[]
         else:
-            if len(pages) == 0 or os.path.getsize(filename) == 0:
+            if len(pages) == 0 or os.path.getsize(path) == 0:
                 logging.debug("empty scan file. Removing")
                 client_notify("empty scan")
-                self.removeFile(filename)
+                self.removeFile(path)
                 return False,pages
             else:
                 client_notify("complete")
