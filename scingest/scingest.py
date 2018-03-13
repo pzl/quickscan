@@ -95,13 +95,13 @@ class Client(object):
 
 
     def _send_page_data(self, data):
-        scaled_data = data.resize((240,320)).tobytes()
+        scaled_data = data.resize((240,320)).convert('RGB').tobytes()
         self._sendb(scaled_data)
 
     def _send_crop_data(self, data):
         w,h = data.size
         x,y = random.randrange(w-240),random.randrange(h-320)
-        cropped_data = data.crop((x,y,x+240,y+320)).tobytes()
+        cropped_data = data.crop((x,y,x+240,y+320)).convert('RGB').tobytes()
         self._sendb(cropped_data)
 
     def send_progress(self, action, *args):
