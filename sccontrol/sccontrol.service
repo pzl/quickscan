@@ -2,7 +2,7 @@
 Description=Scanner controller, and menu interface
 
 [Service]
-ExecStart=/home/dan/sccontrol/venv/bin/python /home/dan/sccontrol/sccontrol.py
+ExecStart=/home/dan/quickscan/sccontrol/venv/bin/python /home/dan/quickscan/sccontrol/sccontrol.py
 KillMode=mixed
 Restart=always
 RestartSec=700ms
