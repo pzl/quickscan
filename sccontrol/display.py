@@ -73,7 +73,7 @@ class LCD(object):
 	def show(self, data):
 		if not self.state:
 			self.on()
-		image = Image.frombytes('RGB', (240,320), data, 'raw')
+		image = Image.frombytes('RGB', (240,320), data, 'raw').rotate(180)
 		self.device.display(image)
 
 class Sidebar(object):
