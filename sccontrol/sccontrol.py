@@ -38,6 +38,7 @@ class Menu(object):
 		self.settings.append(Setting({"Mode":"mode"},("Color","Gray",{"B/W":"Lineart"})))
 		self.settings.append(Setting({"DPI":"resolution"},list(range(50,601,50)),500))
 		self.settings.append(Setting({"Sides":"source"},({1:"ADF Front"},{2:"ADF Duplex"}),2))
+		self.settings.append(Setting({"Rotate":"swdeskew"},({"on":1},{"off":0}),"on"))
 		self.main = MenuPage("Main Menu", self.settings)
 		self.page = self.main
 
