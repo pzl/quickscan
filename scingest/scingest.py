@@ -204,7 +204,7 @@ class Scanner(object):
         logging.debug('got scanning device')
         atexit.register(self.cleanup)
         self.output_dir = "" if len(sys.argv) < 2 else sys.argv[1]
-        os.makedirs(self.output_dir,exist_ok=False)
+        os.makedirs(self.output_dir,exist_ok=True)
 
 
     def get_device(self, manufac):
