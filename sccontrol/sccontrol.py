@@ -2,6 +2,7 @@
 import sys
 from signal import signal, SIGTERM, SIGINT
 import time
+from socket import gaierror as sock_err
 import logging
 from util import is_pi
 from scan import Scanner
@@ -102,6 +103,12 @@ class IO_Mgr(object):
 		except ConnectionRefusedError:
 			logging.debug("could not connect to scingest")
 			self.screen.draw_err("couldn't find server")
+			time.sleep(2)
+			self.screen.draw_menu(self.menu)
+			return
+		except sock_err:
+			logging.debug("got socket error")
+			self.screen.draw_err("server conn problem")
 			time.sleep(2)
 			self.screen.draw_menu(self.menu)
 			return
