@@ -57,9 +57,15 @@ class LCD(object):
 	def backlight(self, onoff):
 		self.device.backlite(onoff)
 	def off(self):
-		GPIO.output(self.RST, GPIO.LOW)
-		self.backlight(0)
-		self.state=0
+		try:
+			GPIO.output(self.RST, GPIO.LOW)
+		except RuntimeError:
+			# LCD was never initialized
+			pass
+		else:
+			self.backlight(0)
+		finally:
+			self.state=0
 	def on(self):
 		self.device.initLCD(self.DC, self.RST, self.LED)
 		self.backlight(1)
