@@ -241,7 +241,7 @@ class Scanner(object):
             for i,page in enumerate(feed):
                 logging.info('saving page {}...'.format(i+1))
                 client_notify("PAGE {}".format(i+1))
-                page.save(tiff)
+                page.save(tiff,dpi=(feed.dev.resolution,feed.dev.resolution))
                 tiff.newFrame()
                 pages.append(page)
                 logging.debug("saved")
