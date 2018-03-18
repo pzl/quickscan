@@ -4,6 +4,7 @@ import sane
 from PIL import TiffImagePlugin
 import logging
 import socket
+import subprocess
 import json
 from signal import signal, SIGTERM, SIGINT
 import atexit
@@ -241,10 +242,11 @@ class Scanner(object):
             for i,page in enumerate(feed):
                 logging.info('saving page {}...'.format(i+1))
                 client_notify("PAGE {}".format(i+1))
-                page.save(tiff,dpi=(feed.dev.resolution,feed.dev.resolution),compression="tiff_lzw")
+                page.save(tiff,dpi=(feed.dev.resolution,feed.dev.resolution))
                 tiff.newFrame()
                 pages.append(page)
                 logging.debug("saved")
+        subprocess.run(["convert","-compress","zip",filename,filename])
         return pages
 
 
